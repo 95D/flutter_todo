@@ -144,7 +144,7 @@ class TodoProvider {
     for (var todoRecord in todoRecords)
     {
       var todo =  Todo.fromMap(todoRecord);
-      _joinContents(todo);
+      todo.contentsList = await _joinContents(todo);
       ans.add(todo);
     }
     return ans;
@@ -165,7 +165,7 @@ class TodoProvider {
     for (var todoRecord in todoRecords)
     {
       var todo =  Todo.fromMap(todoRecord);
-      _joinContents(todo);
+      todo.contentsList = await _joinContents(todo);
       ans.add(todo);
     }
     return ans;
@@ -184,33 +184,37 @@ class TodoProvider {
     for (var todoRecord in todoRecords)
     {
       var todo =  Todo.fromMap(todoRecord);
-      _joinContents(todo);
+      todo.contentsList = await _joinContents(todo);
       ans.add(todo);
     }
     return ans;
   }
 
-  Future<Todo> _joinContents(Todo todo) async
+  Future<List<Contents>> _joinContents(Todo todo) async
   {
+    List<Contents> ans = <Contents>[];
     List<Map> cnttRecords = await _db.query(_tableCntt,
         columns: [_colmCnttId, _colmCnttComments, _colmCnttDone],
         where: '$_colmCnttPid = ?',
         whereArgs: [todo.id]);
     for(var cnttRecord in cnttRecords) {
       Contents contents = Contents.fromMap(cnttRecord);
-      todo.contentsList.add(contents);
+      ans.add(contents);
       dev.log(todo.toString() + "<=" + contents.toString());
     }
-    return todo;
+    return ans;
   }
 
   Future<Todo> insert(Todo todo) async {
     if(_db == null)
       await _open();
-    todo.id = await _db.insert(_tableTodo, todo.toMap());
+    int pid = await _db.insert(_tableTodo, todo.toMap());
+    dev.log(pid.toString() + '.. insert todo');
     for(var contents in todo.contentsList) {
-      await _db.insert(_tableCntt, contents.toMap(todo.id));
+      contents.id = await _db.insert(_tableCntt, contents.toMap(pid));
+      dev.log(contents.id.toString() + '.. insert cntts');
     }
+    todo.id = pid;
     return todo;
   }
 
@@ -221,15 +225,9 @@ class TodoProvider {
         columns: [_colmTodoId, _colmTodoTitle, _colmTodoOrder, _colmTodoDeadline, _colmTodoDone],
         where: '$_colmTodoId = ?',
         whereArgs: [id]);
-
-    List<Map> cnttRecords = await _db.query(_tableCntt,
-        columns: [_colmCnttId, _colmCnttComments, _colmCnttDone],
-        where: '$_colmCnttPid = ?',
-        whereArgs: [id]);
     if (todoRecords.length > 0) {
       var todo =  Todo.fromMap(todoRecords.first);
-      for(var record in cnttRecords)
-        todo.contentsList.add(Contents.fromMap(record));
+      todo.contentsList = await _joinContents(todo);
       return todo;
     }
     return null;

@@ -22,13 +22,13 @@ class HomeTodoListState extends State<HomePage> {
 
   void _pushEdit(
       {int index = 0, bool isEditing = true, bool isNew = true}) async {
-    Todo todo = isNew ? Todo() : _todos[index];
+    Todo todo = isNew ? Todo() : await TodoProvider().getTodo(_todos[index].id);
     EditPageReturns ans = (await Navigator.pushNamed(context, '/edit',
         arguments: EditPageArguments(todo, isNew))) as EditPageReturns;
     if (ans != null && ans.dirty) {
       _scaffoldKey.currentState.showSnackBar(SnackBar(
         content: Text("Todo edit complete."),
-        duration: Duration(milliseconds: 200),
+        duration: Duration(milliseconds: 400),
       ));
       if (!isNew) {
         Todo updated = await TodoProvider().getTodo(ans.id);
@@ -52,7 +52,6 @@ class HomeTodoListState extends State<HomePage> {
 
   void _pollNext(int offset) async {
     pollAwait = true;
-    await new Future.delayed(new Duration(milliseconds: 50));
     List<Todo> nxts = await TodoProvider().pollDoneSortedByOrder(
         offset, 100, pollIsDone, pollOrderGreater);
     setState(() {

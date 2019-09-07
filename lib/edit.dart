@@ -43,7 +43,9 @@ class EditState extends State<EditPage> {
   final _delCntts = <int>[];
   final _orderController = TextEditingController();
   final _titleController = TextEditingController();
+  final _titleFocus = FocusNode();
   final _contentsControllers = <TextEditingController>[];
+  final _contentsFocusList = <FocusNode>[];
 
   void _popNavigation(bool dirty) {
     Navigator.pop(context, EditPageReturns(dirty, _template.id));
@@ -72,7 +74,7 @@ class EditState extends State<EditPage> {
       await TodoProvider().insert(_template);
     else
       await TodoProvider().update(_template, _delCntts);
-
+    dev.log("write complete.");
     if (_template.hasDeadLine && _template.deadline.isAfter(DateTime.now())) {
       NotifyManager()
           .deadlineSchedule(_template.id, _template.title, _template.deadline);
@@ -88,18 +90,35 @@ class EditState extends State<EditPage> {
     _popNavigation(true);
   }
 
+  void _addContents() {
+    _template.contentsList.add(Contents(''));
+    _contentsControllers.add(TextEditingController());
+    _contentsFocusList.add(FocusNode());
+    FocusScope.of(context).requestFocus(_contentsFocusList.last);
+  }
+
+  void _removeContents(int index) {
+    int did = _template.contentsList[index].id;
+    if(did != null)
+      _delCntts.add(did);
+    _template.contentsList.removeAt(index);
+    _contentsControllers.removeAt(index);
+    _contentsFocusList.removeAt(index);
+  }
+
   @override
   void initState() {
     super.initState();
     _isEditing = widget.isNew;
     _template = widget.template;
+    for(int i=0;i<_template.contentsList.length;i++) {
+      _contentsControllers.add(TextEditingController());
+      _contentsFocusList.add(FocusNode());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    for (int i = _contentsControllers.length - 1;
-        i < _template.contentsList.length;
-        i++) _contentsControllers.add(TextEditingController());
     _titleController.text = _template.title;
     _orderController.text = _template.order.toString();
     for (int i = 0; i < _template.contentsList.length; i++) {
@@ -218,32 +237,66 @@ class EditState extends State<EditPage> {
   }
 
   Widget _buildStdButtonBar() {
-    return ButtonBar(
-      alignment: MainAxisAlignment.center,
-      children: <Widget>[
-        FlatButton.icon(
-          icon: Icon(Icons.check),
-          label: Text('Complete'),
-          onPressed: () {
-            _template.done = true;
-            _commitTodoEdit();
-          },
-        ),
-        FlatButton.icon(
-            icon: Icon(Icons.edit),
-            label: Text('Edit'),
-            onPressed: () {
-              setState(() {
-                _isEditing = true;
-              });
-            }),
-        FlatButton.icon(
-          icon: Icon(Icons.delete),
-          label: Text('Delete'),
-          onPressed: () => _commitTodoDel(_template.id),
-        )
-      ],
-    );
+    return Container(
+        height: 80,
+        decoration: BoxDecoration(
+            color: Theme.of(context).buttonColor,
+            borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(5),
+                topRight: const Radius.circular(5))),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Expanded(
+                child: FlatButton(
+                    child: Container(
+                      margin: EdgeInsets.only(top: 15, bottom: 10),
+                      height: 60,
+                      child: Column(children: <Widget>[
+                        Icon(Icons.check),
+                        Padding(padding: EdgeInsets.only(top: 5)),
+                        Text('Complete'),
+                      ]),
+                    ),
+                    onPressed: () {
+                      _template.done = true;
+                      _commitTodoEdit();
+                    })),
+            Expanded(
+                child: FlatButton(
+                    child: Container(
+                        margin: EdgeInsets.only(top: 15, bottom: 10),
+                        height: 60,
+                        child: Column(
+                          children: <Widget>[
+                            Icon(Icons.edit),
+                            Padding(padding: EdgeInsets.only(top: 5)),
+                            Text('Edit'),
+                          ],
+                        )),
+                    onPressed: () {
+                      setState(() {
+                        _isEditing = true;
+                      });
+                    })),
+            Expanded(
+                child: FlatButton(
+                    child: Container(
+                        margin: EdgeInsets.only(top: 15, bottom: 10),
+                        height: 60,
+                        child: Column(
+                          children: <Widget>[
+                            Icon(Icons.delete),
+                            Padding(padding: EdgeInsets.only(top: 5)),
+                            Text('Delete'),
+                          ],
+                        )),
+                    onPressed: () {
+                      _commitTodoDel(_template.id);
+                    }))
+          ],
+        ));
   }
 
   Widget _buildEditTodoDetail() {
@@ -264,14 +317,18 @@ class EditState extends State<EditPage> {
     return ListTile(
       title: TextField(
         controller: _titleController,
+        focusNode: _titleFocus,
         style: Theme.of(context)
             .textTheme
             .title
             .copyWith(fontWeight: FontWeight.bold),
         keyboardType: TextInputType.multiline,
-        decoration: new InputDecoration.collapsed(hintText: "제목"),
+        minLines: 1,
+        maxLines: 100,
+        decoration: new InputDecoration.collapsed(hintText: "Title"),
         onChanged: (text) => _template.title = text,
       ),
+      onTap: () => FocusScope.of(context).requestFocus(_titleFocus),
     );
   }
 
@@ -281,19 +338,23 @@ class EditState extends State<EditPage> {
       leading: _buildDoneCheckbox(index),
       title: TextField(
         controller: _contentsControllers[index],
+        focusNode: _contentsFocusList[index],
         keyboardType: TextInputType.multiline,
-        decoration: new InputDecoration.collapsed(hintText: "내용"),
+        minLines: 1,
+        maxLines: 100,
+        decoration: new InputDecoration.collapsed(hintText: "Contents"),
         onChanged: (text) => cur.comments = text,
       ),
       trailing: IconButton(
         icon: Icon(Icons.remove_circle_outline),
         onPressed: () {
           setState(() {
-            _delCntts.add(cur.id);
-            _template.contentsList.remove(cur);
+            _removeContents(index);
           });
         },
       ),
+      onTap: () =>
+          FocusScope.of(context).requestFocus(_contentsFocusList[index]),
     );
   }
 
@@ -305,7 +366,7 @@ class EditState extends State<EditPage> {
       ),
       onTap: () {
         setState(() {
-          _template.contentsList.add(Contents(""));
+          _addContents();
         });
       },
     );
@@ -348,7 +409,7 @@ class EditState extends State<EditPage> {
         lastDate: DateTime(2077),
         builder: (BuildContext context, Widget child) {
           return Theme(
-            data: ThemeData.dark(),
+            data: mainLightTheme,
             child: child,
           );
         });
@@ -357,7 +418,7 @@ class EditState extends State<EditPage> {
         initialTime: TimeOfDay.now(),
         builder: (BuildContext context, Widget child) {
           return Theme(
-            data: ThemeData.dark(),
+            data: mainLightTheme,
             child: child,
           );
         });
@@ -386,12 +447,33 @@ class EditState extends State<EditPage> {
   }
 
   Widget _buildEditButtonBar() {
-    return ButtonBar(
-      children: <Widget>[
-        FlatButton(child: Text('Cancel'), onPressed: () => _cancelTodoEdit()),
-        FlatButton(child: Text('Save'), onPressed: () => _commitTodoEdit()),
-      ],
-    );
+    return Container(
+        height: 80,
+        decoration: BoxDecoration(
+            color: Theme.of(context).buttonColor,
+            borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(5),
+                topRight: const Radius.circular(5))),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            Expanded(
+                child: FlatButton(
+                    child: Text(
+                      'Cancel',
+                      style: Theme.of(context).textTheme.title,
+                    ),
+                    onPressed: () => _cancelTodoEdit())),
+            Expanded(
+                child: FlatButton(
+                    child: Text(
+                        'Save',
+                      style: Theme.of(context).textTheme.title.copyWith(color:Theme.of(context).accentColor),
+                    ),
+                    onPressed: () => _commitTodoEdit())),
+          ],
+        ));
   }
 
   Widget _buildDoneCheckbox(int index) {
