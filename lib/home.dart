@@ -30,31 +30,16 @@ class HomeTodoListState extends State<HomePage> {
         content: Text("Todo edit complete."),
         duration: Duration(milliseconds: 400),
       ));
-      if (!isNew) {
-        Todo updated = await TodoProvider().getTodo(ans.id);
-        setState(() {
-          if (updated == null || updated.done != pollIsDone)
-            _todos.removeAt(index);
-          else
-            _todos[index] = todo;
-          _todos.sort((Todo a, Todo b){
-            if(a.order > b.order)
-              return pollOrderGreater ? -1 : 1;
-            else if(a.order == b.order)
-              return 0;
-            else
-              return pollOrderGreater ? 1 : -1;
-          });
-        });
-      }
+      _pollNext(0, count: _todos.length, isClear: true);
     }
   }
 
-  void _pollNext(int offset) async {
+  void _pollNext(int offset, {int count = 100, bool isClear = false}) async {
     pollAwait = true;
-    List<Todo> nxts = await TodoProvider().pollDoneSortedByOrder(
-        offset, 100, pollIsDone, pollOrderGreater);
+    List<Todo> nxts = await TodoProvider()
+        .pollDoneSortedByOrder(offset, count, pollIsDone, pollOrderGreater);
     setState(() {
+      if (isClear) _todos.clear();
       _todos.addAll(nxts);
     });
     pollAwait = false;
@@ -73,41 +58,29 @@ class HomeTodoListState extends State<HomePage> {
               pinned: true,
               flexibleSpace: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
-                    curHeight = constraints.biggest.height;
-                    return FlexibleSpaceBar(
-                        title: AnimatedOpacity(
-                            duration: Duration(milliseconds: 200),
-                            opacity: curHeight == 80.0 ? 1.0 : 0.0,
-                            child: Text("Todo",
-                                style: Theme
-                                    .of(context)
-                                    .textTheme
-                                    .title
-                                    .copyWith(
-                                    color: Theme
-                                        .of(context)
-                                        .accentColor))),
-                        background: AnimatedOpacity(
-                          duration: Duration(milliseconds: 200),
-                          opacity: curHeight >= 180.0 ? 1.0 : 0.0,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 100.0),
-                            child: Text(
-                              "Todo",
-                              style: Theme
-                                  .of(context)
-                                  .textTheme
-                                  .body2
-                                  .copyWith(
-                                  fontSize: 42.0,
-                                  color: Theme
-                                      .of(context)
-                                      .accentColor),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ));
-                  }),
+                curHeight = constraints.biggest.height;
+                return FlexibleSpaceBar(
+                    title: AnimatedOpacity(
+                        duration: Duration(milliseconds: 200),
+                        opacity: curHeight == 80.0 ? 1.0 : 0.0,
+                        child: Text("Todo",
+                            style: Theme.of(context).textTheme.title.copyWith(
+                                color: Theme.of(context).accentColor))),
+                    background: AnimatedOpacity(
+                      duration: Duration(milliseconds: 200),
+                      opacity: curHeight >= 180.0 ? 1.0 : 0.0,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 100.0),
+                        child: Text(
+                          "Todo",
+                          style: Theme.of(context).textTheme.body2.copyWith(
+                              fontSize: 42.0,
+                              color: Theme.of(context).accentColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ));
+              }),
               bottom: PreferredSize(
                   child: Padding(
                       padding: const EdgeInsets.only(right: 10.0),
@@ -116,28 +89,25 @@ class HomeTodoListState extends State<HomePage> {
                         children: <Widget>[
                           IconButton(
                               icon: Icon(Icons.add),
-                              color: Theme
-                                  .of(context)
-                                  .accentColor,
-                              onPressed: () =>
-                                  _pushEdit(
-                                      isEditing: true)), //Navigator.pushNamed),
+                              color: Theme.of(context).accentColor,
+                              onPressed: () => _pushEdit(
+                                  isEditing: true)), //Navigator.pushNamed),
                           IconButton(
-                              icon: Icon(pollOrderGreater ? Icons.arrow_downward : Icons.arrow_upward),
-                              color: Theme
-                                  .of(context)
-                                  .accentColor,
+                              icon: Icon(pollOrderGreater
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward),
+                              color: Theme.of(context).accentColor,
                               onPressed: () {
                                 setState(() {
-                                  pollOrderGreater = ! pollOrderGreater;
+                                  pollOrderGreater = !pollOrderGreater;
                                   _todos.clear();
                                 });
                               }),
                           IconButton(
-                              icon: Icon(pollIsDone ? Icons.check_box : Icons.check_box_outline_blank),
-                              color: Theme
-                                  .of(context)
-                                  .accentColor,
+                              icon: Icon(pollIsDone
+                                  ? Icons.check_box
+                                  : Icons.check_box_outline_blank),
+                              color: Theme.of(context).accentColor,
                               onPressed: () {
                                 setState(() {
                                   pollIsDone = !pollIsDone;
@@ -154,30 +124,29 @@ class HomeTodoListState extends State<HomePage> {
 
   Widget _buildTodoList() {
     return new Container(
-      //decoration: new BoxDecoration(
-      //color: Color(0xFF454545)
-      // borderRadius: new BorderRadius.vertical(top: Radius.circular(19.0))
-      //),
+        //decoration: new BoxDecoration(
+        //color: Color(0xFF454545)
+        // borderRadius: new BorderRadius.vertical(top: Radius.circular(19.0))
+        //),
         child: SliverList(
             delegate: SliverChildBuilderDelegate(
-                  (context, i) {
-                if (i.isOdd) return Divider();
-                final index = i ~/ 2;
-                if (index == _todos.length) {
-                  if (pollAwait)
-                    return ListTile(
-                        leading: CircularProgressIndicator(),
-                        title: Text("Loading.."));
-                  else
-                    _pollNext(_todos.length);
-                }
-                if (index < _todos.length)
-                  return _buildTodoRow(index);
-                else
-                  return ListTile(); // end
-              },
-              childCount: _todos.length * 2 + 1,
-            )));
+      (context, i) {
+        if (i.isOdd) return Divider();
+        final index = i ~/ 2;
+        if (index == _todos.length) {
+          if (pollAwait)
+            return ListTile(
+                leading: CircularProgressIndicator(), title: Text("Loading.."));
+          else
+            _pollNext(_todos.length);
+        }
+        if (index < _todos.length)
+          return _buildTodoRow(index);
+        else
+          return ListTile(); // end
+      },
+      childCount: _todos.length * 2 + 1,
+    )));
   }
 
   Widget _buildTodoRow(int index) {
@@ -188,13 +157,10 @@ class HomeTodoListState extends State<HomePage> {
         ),
         subtitle: Text(
           model.getDeadLine(),
-          style: Theme
-              .of(context)
+          style: Theme.of(context)
               .textTheme
               .body2
-              .copyWith(color: Theme
-              .of(context)
-              .accentColor),
+              .copyWith(color: Theme.of(context).accentColor),
         ),
         trailing: Container(
           alignment: Alignment(0, 0),
@@ -202,19 +168,14 @@ class HomeTodoListState extends State<HomePage> {
           height: 60,
           width: 60,
           decoration: BoxDecoration(
-            color: Theme
-                .of(context)
-                .accentColor,
+            color: Theme.of(context).accentColor,
             borderRadius: BorderRadius.all(const Radius.circular(15)),
           ),
           child: Text(model.order.toString(),
-              style: Theme
-                  .of(context)
+              style: Theme.of(context)
                   .textTheme
                   .body1
-                  .copyWith(color: Theme
-                  .of(context)
-                  .textSelectionColor)),
+                  .copyWith(color: Theme.of(context).textSelectionColor)),
         ),
         onTap: () => _pushEdit(index: index, isEditing: false, isNew: false));
   }
