@@ -2,6 +2,26 @@
 
 todo application.
 
+## Requirement:
+
++ Create TODO[ Title & Contents ] 
++ View TODO List
++ Edit TODO Title and Contents
++ Delete Existed TODO
++ Set Priority Order about TODO ( + and Ordering Greater, Less )
++ Check out completed TODO 
++ Set DeadLine about TODO and Notify reach to DeadLine
+
+## Sample Image:
+
+#### 1. Home Page
+
+![Home Page](./ppt/01.png)
+
+#### 2. Edit Page
+
+![Edit Page](./ppt/02.png)
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
